@@ -114,6 +114,64 @@ router.get("/my", authenticate, requireRole("customer"), async (req, res, next) 
   }
 });
 
+// GET /api/transactions/export - CSV report for accountants (admin)
+router.get("/export", authenticate, requireRole("admin"), async (req, res, next) => {
+  try {
+    const docs = await transactions().find({}).sort({ createdAt: -1 }).toArray();
+    const rows = await populateTransactions(docs);
+
+    const header = [
+      "Transaction ID",
+      "Customer name",
+      "Customer email",
+      "Service",
+      "Appointment date",
+      "Appointment time",
+      "Amount",
+      "Currency",
+      "Status",
+      "Stripe session",
+      "Paid on",
+    ];
+
+    const escape = (value) => {
+      const text = value === null || value === undefined ? "" : String(value);
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const csv = [
+      header.join(","),
+      ...rows.map((row) =>
+        [
+          row.id,
+          row.customer?.name,
+          row.customer?.email,
+          row.service?.serviceName,
+          row.appointment?.appointmentDate,
+          row.appointment?.timeSlot,
+          row.amount,
+          row.currency,
+          row.status,
+          row.stripeSessionId,
+          row.createdAt ? new Date(row.createdAt).toISOString() : "",
+        ]
+          .map(escape)
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="salonbook-transactions-${new Date().toISOString().slice(0, 10)}.csv"`
+    );
+    // BOM so Excel reads UTF-8 correctly.
+    res.send(`\uFEFF${csv}`);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/transactions/:id  (admin or owner)
 router.get("/:id", authenticate, async (req, res, next) => {
   try {
