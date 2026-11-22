@@ -1,2 +1,10 @@
 node_modules
+coverage
+*.log
+
+# secrets — only the template is tracked
 .env
+.env.*
+!.env.example
+
+.DS_Store
