@@ -53,6 +53,7 @@ export async function ensureIndexes() {
       }
     ),
     getCollection("transactions").createIndex({ appointmentId: 1 }),
+    getCollection("messages").createIndex({ createdAt: -1 }),
     getCollection("user").createIndex({ role: 1, createdAt: -1 }),
     getCollection("transactions").createIndex(
       { stripeSessionId: 1 },

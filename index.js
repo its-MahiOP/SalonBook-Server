@@ -10,6 +10,7 @@ import usersRouter from "./src/routes/users.js";
 import profileRouter from "./src/routes/profile.js";
 import transactionsRouter from "./src/routes/transactions.js";
 import statsRouter from "./src/routes/stats.js";
+import contactRouter from "./src/routes/contact.js";
 import paymentsRouter, { paymentsWebhookHandler } from "./src/routes/payments.js";
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/profile", profileRouter);
 app.use("/api/transactions", transactionsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/payments", paymentsRouter);
+app.use("/api/contact", contactRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
