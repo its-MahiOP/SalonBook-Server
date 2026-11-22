@@ -148,7 +148,11 @@ router.get(
 router.get("/status", (req, res) => {
   res.json({
     success: true,
-    data: { configured: Boolean(env.stripeSecretKey) },
+    data: {
+      configured: Boolean(env.stripeSecretKey),
+      webhookConfigured: Boolean(env.stripeWebhookSecret),
+      publishableKeyConfigured: Boolean(env.stripePublishableKey),
+    },
   });
 });
 
@@ -218,8 +222,21 @@ async function recordFailedPayment(session) {
  * Payment status is only ever marked paid from a verified webhook event.
  */
 export async function paymentsWebhookHandler(req, res) {
-  if (!env.stripeSecretKey || !env.stripeWebhookSecret) {
-    return res.status(503).json({ success: false, message: "Stripe is not configured" });
+  if (!env.stripeSecretKey) {
+    return res.status(503).json({
+      success: false,
+      message: "Stripe is not configured (STRIPE_SECRET_KEY missing)",
+    });
+  }
+  if (!env.stripeWebhookSecret) {
+    // Never trust an unsigned payload: payment status only changes on a
+    // verified webhook, so an unconfigured secret must reject the event.
+    return res.status(503).json({
+      success: false,
+      message:
+        "Stripe webhooks are not configured (STRIPE_WEBHOOK_SECRET missing). " +
+        "Add the signing secret from the Stripe dashboard to accept payments.",
+    });
   }
 
   const signature = req.headers["stripe-signature"];

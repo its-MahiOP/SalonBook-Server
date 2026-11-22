@@ -72,6 +72,17 @@ async function start() {
     console.log(`SalonBook API is running on http://localhost:${env.port}`);
     console.log(`Allowed client origins: ${env.clientUrls.join(", ")}`);
     console.log(`JWT verification uses: ${env.jwksUrl}`);
+
+    if (!env.stripeSecretKey) {
+      console.warn(
+        "STRIPE_SECRET_KEY is empty — checkout will return 503 until Stripe test keys are added."
+      );
+    }
+    if (env.stripeSecretKey && !env.stripeWebhookSecret) {
+      console.warn(
+        "STRIPE_WEBHOOK_SECRET is missing — webhook events will be rejected, so appointments will never be marked as paid."
+      );
+    }
   });
 }
 

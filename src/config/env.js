@@ -28,5 +28,6 @@ export const env = {
   clientUrls,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
   currency: (process.env.STRIPE_CURRENCY || "usd").toLowerCase(),
 };
