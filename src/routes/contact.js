@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { getCollection } from "../db/mongo.js";
-import { badRequest } from "../utils/ApiError.js";
+import { getCollection, toObjectId } from "../db/mongo.js";
+import { authenticate, requireRole } from "../middleware/auth.js";
+import { badRequest, notFound } from "../utils/ApiError.js";
 import { optionalString, requireString } from "../utils/validate.js";
 
 const router = Router();
@@ -70,6 +71,44 @@ router.post("/", async (req, res, next) => {
       message: "Thanks for reaching out. We will reply within one business day.",
       data: { id: result.insertedId.toString() },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/contact - admin inbox
+router.get("/", authenticate, requireRole("admin"), async (req, res, next) => {
+  try {
+    const docs = await messages().find({}).sort({ createdAt: -1 }).limit(100).toArray();
+
+    res.json({
+      success: true,
+      data: docs.map((doc) => ({
+        id: doc._id.toString(),
+        name: doc.name,
+        email: doc.email,
+        phone: doc.phone || "",
+        subject: doc.subject,
+        message: doc.message,
+        read: Boolean(doc.read),
+        createdAt: doc.createdAt,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/contact/:id/read - mark a message as reviewed
+router.patch("/:id/read", authenticate, requireRole("admin"), async (req, res, next) => {
+  try {
+    const id = toObjectId(req.params.id);
+    if (!id) throw badRequest("Invalid message id");
+
+    const result = await messages().updateOne({ _id: id }, { $set: { read: true } });
+    if (result.matchedCount === 0) throw notFound("Message not found");
+
+    res.json({ success: true, message: "Message marked as read" });
   } catch (error) {
     next(error);
   }
