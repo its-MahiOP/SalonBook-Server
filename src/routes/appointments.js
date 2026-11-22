@@ -255,4 +255,70 @@ router.patch(
   }
 );
 
+// PATCH /api/appointments/:id/reschedule - move an unpaid booking to a new slot
+router.patch("/:id/reschedule", authenticate, async (req, res, next) => {
+  try {
+    const objectId = toObjectId(req.params.id);
+    if (!objectId) throw badRequest("Invalid appointment id");
+
+    const appointmentDate = requireDateString(
+      req.body?.appointmentDate,
+      "Appointment date"
+    );
+    if (appointmentDate < todayString()) {
+      throw badRequest("Appointment date cannot be in the past");
+    }
+    const timeSlot = requireEnum(req.body?.timeSlot, "Time slot", TIME_SLOTS);
+
+    const doc = await appointments().findOne({ _id: objectId });
+    if (!doc) throw notFound("Appointment not found");
+
+    const isAdmin = req.authUser.role === "admin";
+    if (!isAdmin && toIdString(doc.customerId) !== req.authUserId) {
+      throw forbidden("You can only reschedule your own appointments");
+    }
+    if (doc.status === "cancelled") {
+      throw badRequest("Cancelled appointments cannot be rescheduled");
+    }
+    if (!isAdmin && doc.status !== "pending") {
+      throw badRequest("Only pending requests can be rescheduled online");
+    }
+    if (doc.paymentStatus === "paid") {
+      throw conflict("Paid appointments must be changed with the salon directly");
+    }
+
+    const clash = await appointments().findOne({
+      _id: { $ne: objectId },
+      appointmentDate,
+      timeSlot,
+      status: { $in: ["pending", "confirmed"] },
+    });
+    if (clash) {
+      throw conflict("That time slot is already booked. Please choose another slot.");
+    }
+
+    const updated = await appointments().findOneAndUpdate(
+      { _id: objectId },
+      {
+        $set: {
+          appointmentDate,
+          timeSlot,
+          rescheduledAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    const [data] = await populateAppointments([updated]);
+    res.json({
+      success: true,
+      message: `Appointment moved to ${appointmentDate} at ${timeSlot}`,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
