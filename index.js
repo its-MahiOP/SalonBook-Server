@@ -4,6 +4,8 @@ import cors from "cors";
 import { env } from "./src/config/env.js";
 import { connectToMongoDB, ensureIndexes } from "./src/db/mongo.js";
 import { errorHandler, notFoundHandler } from "./src/middleware/error.js";
+import { securityHeaders } from "./src/middleware/security.js";
+import { requestLogger } from "./src/middleware/logger.js";
 import servicesRouter from "./src/routes/services.js";
 import appointmentsRouter from "./src/routes/appointments.js";
 import usersRouter from "./src/routes/users.js";
@@ -15,6 +17,9 @@ import paymentsRouter, { paymentsWebhookHandler } from "./src/routes/payments.js
 
 const app = express();
 app.disable("x-powered-by");
+
+app.use(securityHeaders);
+app.use(requestLogger);
 
 app.use(
   cors({
