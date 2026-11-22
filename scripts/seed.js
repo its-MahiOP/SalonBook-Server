@@ -114,10 +114,81 @@ const services = [
   },
 ];
 
+/**
+ * Adds a handful of demo bookings so the admin and customer dashboards are not
+ * empty on a fresh install. Skipped when bookings already exist or when no
+ * customer account has been created yet.
+ */
+async function seedDemoAppointments(db) {
+  const appointments = db.collection("appointments");
+  const existing = await appointments.countDocuments();
+  if (existing > 0) {
+    console.log(`Skipped demo appointments: ${existing} bookings already exist.`);
+    return;
+  }
+
+  const customer = await db.collection("user").findOne({ role: "customer" });
+  if (!customer) {
+    console.log(
+      "Skipped demo appointments: create a customer account first, then run npm run seed again."
+    );
+    return;
+  }
+
+  const serviceDocs = await db
+    .collection("services")
+    .find({ status: "active" })
+    .limit(4)
+    .toArray();
+  if (!serviceDocs.length) return;
+
+  const plans = [
+    { offset: 1, slot: "10:00 AM", status: "pending" },
+    { offset: 3, slot: "01:00 PM", status: "confirmed" },
+    { offset: 6, slot: "11:00 AM", status: "confirmed" },
+    { offset: -3, slot: "03:00 PM", status: "cancelled" },
+  ];
+
+  const notes = [
+    "Please use the side entrance if I am running late.",
+    "",
+    "First visit — happy to take a stylist's recommendation.",
+    "Work clash, will rebook soon.",
+  ];
+
+  const now = new Date();
+  const docs = plans.map((plan, index) => {
+    const service = serviceDocs[index % serviceDocs.length];
+    const date = new Date(now);
+    date.setDate(date.getDate() + plan.offset);
+    const appointmentDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+
+    return {
+      serviceId: service._id,
+      customerId: customer._id,
+      appointmentDate,
+      timeSlot: plan.slot,
+      message: notes[index] || "",
+      servicePrice: service.price,
+      paymentStatus: "unpaid",
+      status: plan.status,
+      createdAt: new Date(now.getTime() - index * 60 * 60 * 1000),
+      ...(plan.status === "confirmed" ? { confirmedAt: new Date() } : {}),
+      ...(plan.status === "cancelled" ? { cancelledAt: new Date() } : {}),
+    };
+  });
+
+  await appointments.insertMany(docs);
+  console.log(`Seeded ${docs.length} demo appointments for ${customer.name}.`);
+}
+
 const client = new MongoClient(process.env.DB_URI);
 try {
   await client.connect();
-  const db = client.db("SalonBook");
+  const db = client.db(process.env.DB_NAME || "SalonBook");
   const collection = db.collection("services");
 
   const existing = await collection.countDocuments();
@@ -130,6 +201,8 @@ try {
     );
     console.log(`Seeded ${services.length} salon services.`);
   }
+
+  await seedDemoAppointments(db);
 } catch (error) {
   console.error("Seeding failed:", error);
   process.exitCode = 1;
