@@ -21,7 +21,7 @@ const clientUrls = (process.env.CLIENT_URL || "http://localhost:3000")
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT) || 5000,
-  dbUri: required("DB_URI"),
+  dbUri: process.env.DB_URI,
   dbName: process.env.DB_NAME || "SalonBook",
   authBaseUrl,
   jwksUrl,
