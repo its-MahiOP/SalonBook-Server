@@ -21,6 +21,17 @@ export function getDb() {
   return database;
 }
 
+export function isDbConnected() {
+  return Boolean(database);
+}
+
+export async function disconnectFromMongoDB() {
+  if (!client) return;
+  await client.close();
+  client = null;
+  database = null;
+}
+
 export function getCollection(name) {
   return getDb().collection(name);
 }

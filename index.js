@@ -2,7 +2,12 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { env } from "./src/config/env.js";
-import { connectToMongoDB, ensureIndexes } from "./src/db/mongo.js";
+import {
+  connectToMongoDB,
+  disconnectFromMongoDB,
+  ensureIndexes,
+  getDb,
+} from "./src/db/mongo.js";
 import { errorHandler, notFoundHandler } from "./src/middleware/error.js";
 import { securityHeaders } from "./src/middleware/security.js";
 import { requestLogger } from "./src/middleware/logger.js";
@@ -53,8 +58,24 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ success: true, status: "ok", time: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  let database = "down";
+  try {
+    const mongo = getDb();
+    await mongo.command({ ping: 1 });
+    database = "up";
+  } catch {
+    database = "down";
+  }
+
+  const ok = database === "up";
+  res.status(ok ? 200 : 503).json({
+    success: ok,
+    status: ok ? "ok" : "degraded",
+    database,
+    uptime: Math.round(process.uptime()),
+    time: new Date().toISOString(),
+  });
 });
 
 app.use("/api/services", servicesRouter);
@@ -73,7 +94,7 @@ async function start() {
   await connectToMongoDB();
   await ensureIndexes();
 
-  app.listen(env.port, () => {
+  const server = app.listen(env.port, () => {
     console.log(`SalonBook API is running on http://localhost:${env.port}`);
     console.log(`Allowed client origins: ${env.clientUrls.join(", ")}`);
     console.log(`JWT verification uses: ${env.jwksUrl}`);
@@ -89,6 +110,34 @@ async function start() {
       );
     }
   });
+
+  // Close the HTTP server and MongoDB connection cleanly on Ctrl+C or deploys.
+  let shuttingDown = false;
+  async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n${signal} received, shutting down SalonBook API...`);
+
+    const forceExit = setTimeout(() => {
+      console.error("Forced shutdown after timeout");
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    server.close(async () => {
+      try {
+        await disconnectFromMongoDB();
+        console.log("Database connection closed");
+        process.exit(0);
+      } catch (error) {
+        console.error("Error while shutting down:", error);
+        process.exit(1);
+      }
+    });
+  }
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 start().catch((error) => {
