@@ -2,7 +2,13 @@
 
 The REST API behind **SalonBook**: an Express 5 + MongoDB service that serves the Next.js client, verifies Better Auth sessions, stores salon data and completes Stripe Checkout payments through a verified webhook.
 
-> The front end lives in a separate repository: **SalonBook Client** (Next.js).
+---
+
+## Project Links
+
+- **Live Website Link:** [https://salonbook-client.vercel.app](https://salonbook-client.vercel.app) *(update with your live deployed URL)*
+- **Client Repository Link:** [https://github.com/its-MahiOP/SalonBook-Client](https://github.com/its-MahiOP/SalonBook-Client)
+- **Server Repository Link:** [https://github.com/its-MahiOP/SalonBook-Server](https://github.com/its-MahiOP/SalonBook-Server)
 
 ---
 

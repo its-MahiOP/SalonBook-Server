@@ -198,8 +198,8 @@ router.post("/", authenticate, requireRole("admin"), async (req, res, next) => {
   }
 });
 
-// PUT /api/services/:id
-router.put("/:id", authenticate, requireRole("admin"), async (req, res, next) => {
+// PUT or PATCH /api/services/:id
+async function updateServiceHandler(req, res, next) {
   try {
     const objectId = toObjectId(req.params.id);
     if (!objectId) throw badRequest("Invalid service id");
@@ -223,7 +223,10 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res, next) =>
   } catch (error) {
     next(error);
   }
-});
+}
+
+router.put("/:id", authenticate, requireRole("admin"), updateServiceHandler);
+router.patch("/:id", authenticate, requireRole("admin"), updateServiceHandler);
 
 // DELETE /api/services/:id
 router.delete("/:id", authenticate, requireRole("admin"), async (req, res, next) => {
