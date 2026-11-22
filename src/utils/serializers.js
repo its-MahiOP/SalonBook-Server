@@ -25,6 +25,7 @@ export function serializeService(doc) {
     duration: doc.duration,
     image: doc.image,
     status: doc.status,
+    bookings: doc.bookings,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };

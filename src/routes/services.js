@@ -116,6 +116,34 @@ router.get("/", optionalAuthenticate, async (req, res, next) => {
       ? Math.min(Math.max(Math.trunc(parsedLimit), 1), 100)
       : 100;
 
+    // "popular" orders by how often each service has been booked, so the
+    // ranking has to be computed from the appointments collection.
+    if (sort === "popular") {
+      const totals = await getCollection("appointments")
+        .aggregate([{ $group: { _id: "$serviceId", bookings: { $sum: 1 } } }])
+        .toArray();
+      const bookingMap = new Map(totals.map((item) => [String(item._id), item.bookings]));
+
+      const all = await services().find(filter).toArray();
+      all.sort((a, b) => {
+        const difference =
+          (bookingMap.get(String(b._id)) ?? 0) - (bookingMap.get(String(a._id)) ?? 0);
+        if (difference !== 0) return difference;
+        return new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0);
+      });
+
+      const docs = all.slice(0, max).map((doc) => ({
+        ...doc,
+        bookings: bookingMap.get(String(doc._id)) ?? 0,
+      }));
+
+      return res.json({
+        success: true,
+        data: docs.map(serializeService),
+        total: all.length,
+      });
+    }
+
     const [docs, total] = await Promise.all([
       services().find(filter).sort(sortOption).limit(max).toArray(),
       services().countDocuments(filter),
